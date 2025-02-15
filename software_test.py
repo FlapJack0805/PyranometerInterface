@@ -31,6 +31,5 @@ def test_main():
 
             csv_writer.writerow([payload['time'], value, mean_30_sec, mean_5_min, mean_10_min])
 
-            resize_csv(file_path, 2000)
 
 test_main()
