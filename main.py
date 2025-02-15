@@ -18,7 +18,7 @@ def main():
     with open(file_path, mode='w', newline='') as csvfile:
         csv_writer = csv.writer(csvfile)
         csv_writer.writerow(['Time (s)', 'ADC Value', '30s Avg', '5m Avg', '10m Avg'])
-
+    
     #initialize the MCP2221 device
     mcp2221 = initialize_adc()
 

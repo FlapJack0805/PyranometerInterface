@@ -8,7 +8,7 @@ import usb
 from software_testing_classes import MockAnalogIn
 from software_testing_classes import MockADC
 
-# Check to see if we're doing a software test
+#Check to see if we're doing a software test
 def initialize_adc(use_mock=False):
     if use_mock:
         return MockAnalogIn(MockADC())
@@ -24,10 +24,13 @@ def initialize_adc(use_mock=False):
             except ValueError:
                 print("MCP2221device not found, retrying in 5 seconds")
                 time.sleep(5)
+        
+        MCP3421_ADDR = 0x68
+        config_byte = 0b10001100
+        dev.ctrl_transfer(0x40, 0x10, 0, 0, [MCP3421_AADR << 1, config_byte])
 
-
-        # Set up the device configuration and interface (this might depend on your device configuration)
-        mcp2221.set_configuration()
+        #Wait for conversion to complete
+        time.sleep(0.1)
 
         # Now, communicate via USB to the MCP3421 via I2C
         return mcp2221  # You would use the I2C communication manually with this device
@@ -64,10 +67,18 @@ def resize_csv(file_path: str, max_data_lines: int):
         print(f"Error resizing CSV file: {e}")
 
 def read_adc_value(mcp2221):
-    # Example function to interact with MCP3421 over I2C via the MCP2221
-    # You will need to implement I2C communication using pyusb here
-    # For instance, sending I2C commands to start a conversion and read the result
-    pass
+    #read 2 bytes from MCP3421
+    response = mcp2221.ctrl_transfer(0xC0, 0x90, 0, 0, 2)
+
+    #convert received bytes to an integer
+    adc_value = (response[0] << 8) | response[1]
+    if adc_value & 0x8000:  # Handle two's complement for negative values
+        adc_value -= 1 << 16
+
+    #calculate voltage (assuming PGA = 1, Vref = 2.048V)
+    voltage = (adc_value / 32768.0) * 2.048
+
+    return voltage
 
 def on_connect(client, userdata, flags, rc):
     print(f"Connected to MQTT broker with result code {rc}")
