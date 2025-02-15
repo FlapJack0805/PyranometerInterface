@@ -5,35 +5,24 @@ import time
 import usb.core
 import usb.util
 import usb
+import hid
 from software_testing_classes import MockAnalogIn
 from software_testing_classes import MockADC
 
 #Check to see if we're doing a software test
-def initialize_adc(use_mock=False):
-    if use_mock:
-        return MockAnalogIn(MockADC())
-    else:
-        while (True):
-            try:
-                # Find the MCP2221 device
-                mcp2221 = usb.core.find(idVendor=0x04D8, idProduct=0x00DD)  # MCP2221 vendor and product IDs
-                if mcp2221 is None:
-                    raise ValueError()
-                else:
-                    break
-            except ValueError:
-                print("MCP2221device not found, retrying in 5 seconds")
-                time.sleep(5)
-        
-        MCP3421_ADDR = 0x68
-        config_byte = 0b10001100
-        dev.ctrl_transfer(0x40, 0x10, 0, 0, [MCP3421_AADR << 1, config_byte])
+def initialize_adc():
+    while True:
+        try:
+            mcp2221 = hid.device()
+            mcp2221.open(0x04D8, 0x00DD)
+            
+            break
+        except Exception as e:
+            print(f"MCP2221 device not found, retrying in 5 seconds")
+            time.sleep(5)
 
-        #Wait for conversion to complete
-        time.sleep(0.1)
+    return mcp2221
 
-        # Now, communicate via USB to the MCP3421 via I2C
-        return mcp2221  # You would use the I2C communication manually with this device
 
 # Takes a list of values and turns it into an average over a given time period
 def average(values: list, time_interval: int) -> float:
@@ -67,16 +56,28 @@ def resize_csv(file_path: str, max_data_lines: int):
         print(f"Error resizing CSV file: {e}")
 
 def read_adc_value(mcp2221):
-    #read 2 bytes from MCP3421
-    response = mcp2221.ctrl_transfer(0xC0, 0x90, 0, 0, 2)
+    MCP3421_ADDR = 0x68
+    config_byte = 0b10011100  # Set resolution, PGA, and mode
 
-    #convert received bytes to an integer
-    adc_value = (response[0] << 8) | response[1]
-    if adc_value & 0x8000:  # Handle two's complement for negative values
-        adc_value -= 1 << 16
+    #Send I2C write command to configure MCP3421
+    mcp2221.write([0x10, MCP3421_ADDR << 1, config_byte])
 
-    #calculate voltage (assuming PGA = 1, Vref = 2.048V)
-    voltage = (adc_value / 32768.0) * 2.048
+    #wait for conversion to complete (MCP3421 needs time)
+    time.sleep(0.1)
+
+    #Request 3 bytes from MCP3421
+    mcp2221.write([0x40, MCP3421_ADDR << 1, 3])
+    response = mcp2221.read(3)
+
+    #Convert the response into an integer (24-bit value)
+    adc_value = (response[0] << 16) | (response[1] << 8) | response[2]
+
+    #Handle two's complement for negative values (24-bit sign bit)
+    if adc_value & 0x800000:
+        adc_value -= 1 << 24
+
+    #Calculate voltage (PGA = 1, Vref = 2.048V)
+    voltage = (adc_value / 8388608.0) * 2.048  # 2^23 = 8388608 for 24-bit
 
     return voltage
 
