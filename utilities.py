@@ -6,8 +6,6 @@ import usb.core
 import usb.util
 import usb
 import hid
-from software_testing_classes import MockAnalogIn
-from software_testing_classes import MockADC
 
 #Check to see if we're doing a software test
 def initialize_adc():
