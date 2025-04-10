@@ -1,5 +1,9 @@
 from utilities import *
 
+#source circuitpython-env/bin/activate
+
+
+
 def main():
     #MQTT setup
     '''
@@ -20,14 +24,19 @@ def main():
         csv_writer.writerow(['Time (s)', 'ADC Value', '30s Avg', '5m Avg', '10m Avg'])
     
     #initialize the MCP2221 device
-    mcp2221 = initialize_adc()
+    i2c = board.I2C()
+    devices = i2c.scan()
+    i2c.unlock()
+
+    adc = ADC.MCP3421(i2c, gain=8, resolution=16, continuous_mode=True)
+    chan = AnalogIn(adc)
 
     pyranometer_values = []
     current_time = 0
 
     while True:
         try:
-            value = read_adc_value(mcp2221)
+            value = chan.value 
             add_values(pyranometer_values, value)
 
             #compute averages
@@ -41,7 +50,8 @@ def main():
                 csv_writer.writerow([current_time, value, mean_30_sec, mean_5_min, mean_10_min])
 
             #publish data to MQTT
-            payload = {
+            payload = 
+            {
                 'time': current_time,
                 'adc_value': value,
                 'mean_30_sec': mean_30_sec,
